@@ -1,5 +1,5 @@
 ```shell
-docker run --name minecraft -v $(pwd):/minecraft -itd ethanscully/papermc:1.0.0
+docker run --name minecraft -v $(pwd):/minecraft -itd ethanscully/papermc:latest
 ```
 
 | Env Vars      | Example          |
