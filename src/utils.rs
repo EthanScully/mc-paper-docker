@@ -1,5 +1,8 @@
-use crate::err::{self, ErrorCaller};
-use std::*;
+use crate::{
+    err::{self, ErrorCaller},
+    utils,
+};
+use std::{str::FromStr, *};
 
 pub type Result<T> = result::Result<T, Box<dyn error::Error>>;
 
@@ -11,4 +14,15 @@ pub fn get(url: &str) -> Result<Vec<u8>> {
     }
     let resp_byte = resp.bytes().e()?.to_vec();
     Ok(resp_byte)
+}
+
+pub fn parse_cron(args: env::Args) -> utils::Result<cron::Schedule> {
+    let args = args.collect::<Vec<_>>();
+    let expression = if args.len() <= 1 {
+        "0 45 5 * * * *".to_string()
+    } else {
+        args[1..].join(" ")
+    };
+
+    Ok(cron::Schedule::from_str(&expression).e()?)
 }
