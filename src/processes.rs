@@ -7,8 +7,8 @@ use std::{
     *,
 };
 pub fn sys_update() -> utils::Result<()> {
-    run_simple_command("apt", &["upgrade"]).e()?;
-    run_simple_command("apt", &["install", "openjdk-21-jre-headless", "f"]).e()?;
+    run_simple_command("apt", &["update"]).e()?;
+    run_simple_command("apt", &["install", "openjdk-25-jre-headless", "-y"]).e()?;
     Ok(())
 }
 fn run_simple_command(arg0: &str, args: &[&str]) -> utils::Result<()> {
@@ -53,11 +53,20 @@ pub struct Process {
     child: process::Child,
     stdin: process::ChildStdin,
 }
+impl Process {
+    pub fn check_state(mut self) -> utils::Result<Option<Self>> {
+        if self.child.try_wait().e()?.is_some() {
+            return Ok(None)
+        } else {
+            return Ok(Some(self))
+        }
+    }
+}
 
 pub fn new() -> Option<Process> {
     None
 }
-pub fn mc_restart(mc_state: &mut Option<Process>, args: &[&str]) -> utils::Result<()> {
+pub fn mc_restart(mc_state: &mut Option<Process>, args: &Vec<String>) -> utils::Result<()> {
     if let Some(mut state) = mc_state.take() {
         if state.child.try_wait().e()?.is_none() {
             let msg = "/stop\n";

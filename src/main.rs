@@ -22,16 +22,41 @@ fn mc(updated: &mut bool) -> utils::Result<()> {
     Ok(())
 }
 fn main() {
-    let schedule = utils::parse_cron(env::args()).unwrap();
+    let schedule = utils::parse_cron().unwrap();
     let mut upcoming = schedule.upcoming(chrono::Local);
+    println!("Initial System Update");
     processes::sys_update().unwrap();
+    println!("Intial PaperMC API Check");
     mc(&mut false).unwrap();
+    let mut java_command = vec![
+        "-jar".to_string(),
+        "mc.jar".to_string(),
+        "nogui".to_string(),
+    ];
+    match env::var("JAVACMDADD") {
+        Ok(r) => {
+            for add in r.split(" ") {
+                java_command.push(add.to_string());
+            }
+        }
+        _ => (),
+    };
     let mut mc_state = processes::new();
-    processes::mc_restart(&mut mc_state, &[""]).unwrap();
+    println!("Starting Minecraft");
+    processes::mc_restart(&mut mc_state, &java_command).unwrap();
     loop {
         if let Some(next) = upcoming.next() {
-            let sleep_duration = (next - chrono::Local::now()).to_std().unwrap_or_default();
-            thread::sleep(sleep_duration);
+            while next >= chrono::Local::now() {
+                thread::sleep(time::Duration::from_secs(5));
+                if let Some(state) = mc_state {
+                    mc_state = state.check_state().unwrap();
+                    if mc_state.is_none() {
+                        println!("Minecraft Closed, Restarting ...");
+                        break;
+                    }
+                }
+            }
+            println!("Checking for Updates");
             match processes::sys_update() {
                 Ok(r) => r,
                 Err(e) => eprintln!("{:#?}", e),
@@ -41,8 +66,11 @@ fn main() {
                 Ok(r) => r,
                 Err(e) => eprintln!("{:#?}", e),
             };
-            if updated {
-                processes::mc_restart(&mut mc_state, &[""]).unwrap();
+            if updated || mc_state.is_none() {
+                if updated {
+                    println!("Updating Minecraft")
+                }
+                processes::mc_restart(&mut mc_state, &java_command).unwrap();
             }
         } else {
             panic!("None")
