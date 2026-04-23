@@ -3,7 +3,8 @@ use crate::{
     utils,
 };
 use std::{
-    io::{Read, Write},
+    io::{BufRead, Read, Write},
+    sync::{Arc, RwLock},
     *,
 };
 pub fn sys_update() -> utils::Result<()> {
@@ -54,36 +55,33 @@ pub struct Process {
     stdin: process::ChildStdin,
 }
 impl Process {
-    pub fn check_state(mut self) -> utils::Result<Option<Self>> {
+    /// returns true if process is dead
+    pub fn check_state(&mut self) -> utils::Result<bool> {
         if self.child.try_wait().e()?.is_some() {
-            return Ok(None)
+            Ok(true)
         } else {
-            return Ok(Some(self))
+            Ok(false)
         }
     }
 }
-
-pub fn new() -> Option<Process> {
-    None
-}
-pub fn mc_restart(mc_state: &mut Option<Process>, args: &Vec<String>) -> utils::Result<()> {
-    if let Some(mut state) = mc_state.take() {
-        if state.child.try_wait().e()?.is_none() {
-            let msg = "/stop\n";
-            state.stdin.write_all(msg.as_bytes()).e()?;
-            state.stdin.flush().e()?;
+pub fn mc_restart(mc_state_mutex: Arc<RwLock<Option<Process>>>, args: &Vec<String>) -> utils::Result<()> {
+    if let Some(mut mc_state) = (*mc_state_mutex.write().o()?).take() {
+        if mc_state.child.try_wait().e()?.is_none() {
+            let msg = "\n/stop\n";
+            mc_state.stdin.write_all(msg.as_bytes()).e()?;
+            mc_state.stdin.flush().e()?;
             let mut exited = false;
             for _ in 0..300 {
-                if state.child.try_wait().e()?.is_some() {
+                if mc_state.child.try_wait().e()?.is_some() {
                     exited = true;
                     break;
                 }
                 thread::sleep(time::Duration::from_secs(1));
             }
             if !exited {
-                state.child.kill().e()?;
+                mc_state.child.kill().e()?;
             }
-            state.child.wait().e()?;
+            mc_state.child.wait().e()?;
         }
     }
     let mut command = process::Command::new("java");
@@ -101,6 +99,36 @@ pub fn mc_restart(mc_state: &mut Option<Process>, args: &Vec<String>) -> utils::
         child,
         stdin: child_stdin,
     };
-    *mc_state = Some(state);
+    *mc_state_mutex.write().o()? = Some(state);
     Ok(())
+}
+
+pub fn grab_stdin() -> Arc<RwLock<Option<Process>>> {
+    let process: Arc<RwLock<Option<Process>>> = Arc::new(RwLock::new(None));
+    let p = process.clone();
+    thread::spawn(move || {
+        let stdin = io::stdin();
+        let mut handle = stdin.lock();
+        let mut buffer = String::new();
+        loop {
+            buffer.clear();
+            match handle.read_line(&mut buffer) {
+                Ok(0) => break,
+                Ok(_) => {
+                    let mut child_process_option = match p.write() {
+                        Ok(r) => r,
+                        _ => break,
+                    };
+                    if let Some(child_process) = (*child_process_option).as_mut() {
+                        if child_process.stdin.write_all(buffer.as_bytes()).is_err() {
+                            continue;
+                        }
+                        _ = child_process.stdin.flush();
+                    }
+                }
+                Err(_) => break,
+            }
+        }
+    });
+    process
 }

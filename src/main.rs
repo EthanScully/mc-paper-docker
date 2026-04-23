@@ -24,6 +24,7 @@ fn mc(updated: &mut bool) -> utils::Result<()> {
 fn main() {
     let schedule = utils::parse_cron().unwrap();
     let mut upcoming = schedule.upcoming(chrono::Local);
+    let mc_state_mutex = processes::grab_stdin();
     println!("Initial System Update");
     processes::sys_update().unwrap();
     println!("Intial PaperMC API Check");
@@ -41,19 +42,21 @@ fn main() {
         }
         _ => (),
     };
-    let mut mc_state = processes::new();
     println!("Starting Minecraft");
-    processes::mc_restart(&mut mc_state, &java_command).unwrap();
+    processes::mc_restart(mc_state_mutex.clone(), &java_command).unwrap();
     loop {
         if let Some(next) = upcoming.next() {
             while next >= chrono::Local::now() {
                 thread::sleep(time::Duration::from_secs(5));
-                if let Some(state) = mc_state {
-                    mc_state = state.check_state().unwrap();
-                    if mc_state.is_none() {
-                        println!("Minecraft Closed, Restarting ...");
-                        break;
+                let mut mc_state_lock = mc_state_mutex.write().unwrap();
+                if let Some(mc_state) = (*mc_state_lock).as_mut() {
+                    if mc_state.check_state().unwrap() {
+                        (*mc_state_lock) = None;
+                        break
                     }
+                } else {
+                    println!("Minecraft Closed, Restarting ...");
+                        break;
                 }
             }
             println!("Checking for Updates");
@@ -66,11 +69,11 @@ fn main() {
                 Ok(r) => r,
                 Err(e) => eprintln!("{:#?}", e),
             };
-            if updated || mc_state.is_none() {
+            if updated || mc_state_mutex.read().unwrap().is_none() {
                 if updated {
                     println!("Updating Minecraft")
                 }
-                processes::mc_restart(&mut mc_state, &java_command).unwrap();
+                processes::mc_restart(mc_state_mutex.clone(), &java_command).unwrap();
             }
         } else {
             panic!("None")
