@@ -1,5 +1,5 @@
 ```shell
-docker run --name minecraft -v $(pwd):/minecraft -itd ethanscully/papermc:latest
+docker run --name minecraft -v $(pwd):/minecraft -p 25565:25565 -itd ethanscully/papermc:latest
 ```
 
 ### Optional Environmental Variables
