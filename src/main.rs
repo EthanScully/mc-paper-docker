@@ -7,7 +7,7 @@ mod utils;
 use crate::err::ErrorCaller;
 use std::{path::Path, *};
 
-fn mc(updated: &mut bool) -> utils::Result<()> {
+fn mc_update(updated: &mut bool) -> utils::Result<()> {
     let mc_json_path = Path::new("mc-config.json");
     let mc_jar_path = Path::new("mc.jar");
     let mc_config = config::load_json(mc_json_path).e()?;
@@ -28,7 +28,7 @@ fn main() {
     println!("Initial System Update");
     processes::sys_update().unwrap();
     println!("Intial PaperMC API Check");
-    mc(&mut false).unwrap();
+    mc_update(&mut false).unwrap();
     let mut java_command = vec![
         "-jar".to_string(),
         "mc.jar".to_string(),
@@ -52,11 +52,11 @@ fn main() {
                 if let Some(mc_state) = (*mc_state_lock).as_mut() {
                     if mc_state.check_state().unwrap() {
                         (*mc_state_lock) = None;
-                        break
+                        break;
                     }
                 } else {
                     println!("Minecraft Closed, Restarting ...");
-                        break;
+                    break;
                 }
             }
             println!("Checking for Updates");
@@ -65,7 +65,7 @@ fn main() {
                 Err(e) => eprintln!("{:#?}", e),
             };
             let mut updated = false;
-            match mc(&mut updated) {
+            match mc_update(&mut updated) {
                 Ok(r) => r,
                 Err(e) => eprintln!("{:#?}", e),
             };
