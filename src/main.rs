@@ -10,8 +10,8 @@ use std::{path::Path, *};
 fn mc_update(updated: &mut bool) -> utils::Result<()> {
     let mc_json_path = Path::new("mc-config.json");
     let mc_jar_path = Path::new("mc.jar");
-    let mc_config = config::load_json(mc_json_path).e()?;
-    let latest_version = match mc_config.check_update().e()? {
+    let mut mc_config = config::load_json(mc_json_path).e()?;
+    let latest_version = match mc_config.need_update().e()? {
         Some(o) => o,
         None => return Ok(()),
     };

@@ -22,9 +22,10 @@ struct PaperBuildDownloadDefault {
     url: String,
 }
 //                  //
-struct VersionList(Vec<Version>);
+#[derive(Debug)]
+pub struct VersionList(Vec<Version>);
 impl VersionList {
-    fn get() -> utils::Result<Self> {
+    pub fn get() -> utils::Result<Self> {
         let json_raw = utils::get("https://fill.papermc.io/v3/projects/paper").e()?;
         let json_list = serde_json::from_slice::<PaperVersionList>(&json_raw).e()?;
         let mut versions = Vec::<Version>::new();
@@ -39,9 +40,23 @@ impl VersionList {
         versions.0.reverse();
         Ok(versions)
     }
+    pub fn latest_stable_build(&mut self) -> utils::Result<Option<Build>> {
+        for version in &mut self.0 {
+            if version.builds.is_none() {
+                version.pull_builds().e()?
+            }
+            let latest_stable_build = version.builds.as_ref().unwrap().latest_stable();
+            if latest_stable_build.is_none() {
+                continue;
+            }
+            return Ok(latest_stable_build);
+        }
+        return Ok(None);
+    }
 }
-struct Version {
-    value: (u16, u16, u16),
+#[derive(Debug)]
+pub struct Version {
+    pub value: (u16, u16, u16),
     original: String,
     builds: Option<BuildList>,
 }
@@ -69,7 +84,7 @@ impl Version {
             builds: None,
         }
     }
-    fn import(value: (u16, u16, u16)) -> Self {
+    pub fn import(value: (u16, u16, u16)) -> Self {
         let original = if value.2 == 0 {
             format!("{}.{}", value.0, value.1)
         } else {
@@ -81,7 +96,10 @@ impl Version {
             builds: None,
         }
     }
-    fn pull(&mut self) {}
+    fn pull_builds(&mut self) -> utils::Result<()> {
+        self.builds = Some(BuildList::get(&self).e()?);
+        Ok(())
+    }
 }
 impl Ord for Version {
     fn cmp(&self, other: &Self) -> cmp::Ordering {
@@ -107,55 +125,90 @@ impl PartialEq for Version {
     }
 }
 impl Eq for Version {}
-struct BuildList(Vec<BuildInfo>);
+impl Clone for Version {
+    fn clone(&self) -> Self {
+        Self {
+            value: self.value.clone(),
+            original: self.original.clone(),
+            builds: None,
+        }
+    }
+}
+#[derive(Debug)]
+struct BuildList(Vec<Build>);
 impl BuildList {
-    fn get(version: &str) -> utils::Result<Self> {
+    fn get(version: &Version) -> utils::Result<Self> {
         let json_raw = utils::get(&format!(
             "https://fill.papermc.io/v3/projects/paper/versions/{}/builds",
-            version
+            version.original
         ))
         .e()?;
         let json_list = serde_json::from_slice::<Vec<PaperBuild>>(&json_raw).e()?;
-        let mut builds = Vec::<BuildInfo>::new();
+        let mut builds = Vec::<Build>::new();
         for b in json_list {
-            builds.push(BuildInfo::new(&b));
+            builds.push(Build::new(&b, version));
         }
         let mut builds = BuildList(builds);
         builds.0.sort();
         builds.0.reverse();
         Ok(builds)
     }
+    fn latest_stable(&self) -> Option<Build> {
+        for build in &self.0 {
+            if build.channel == BuildChannel::STABLE {
+                return Some(build.clone());
+            }
+        }
+        return None;
+    }
 }
-struct BuildInfo {
-    id: u16,
+#[derive(Clone, Debug)]
+pub struct Build {
+    pub version: Version,
+    pub id: u16,
     channel: BuildChannel,
-    url: String,
+    pub url: String,
 }
-impl BuildInfo {
-    fn new(build: &PaperBuild) -> Self {
-        BuildInfo {
+impl Build {
+    fn new(build: &PaperBuild, version: &Version) -> Self {
+        Build {
+            version: version.clone(),
             id: build.id,
             channel: BuildChannel::parse(&build.channel),
             url: build.downloads.server_default.url.clone(),
         }
     }
-}
-impl Ord for BuildInfo {
-    fn cmp(&self, other: &Self) -> cmp::Ordering {
-        self.id.cmp(&other.id)
+    pub fn import(id: u16, version: Version) -> Self {
+        Self {
+            version,
+            id,
+            channel: BuildChannel::UNKNOWN,
+            url: String::new(),
+        }
     }
 }
-impl PartialOrd for BuildInfo {
+impl Ord for Build {
+    fn cmp(&self, other: &Self) -> cmp::Ordering {
+        let c = self.version.cmp(&other.version);
+        if c == cmp::Ordering::Equal {
+            self.id.cmp(&other.id)
+        } else {
+            c
+        }
+    }
+}
+impl PartialOrd for Build {
     fn partial_cmp(&self, other: &Self) -> Option<cmp::Ordering> {
         Some(self.cmp(other))
     }
 }
-impl PartialEq for BuildInfo {
+impl PartialEq for Build {
     fn eq(&self, other: &Self) -> bool {
         self.cmp(other) == cmp::Ordering::Equal
     }
 }
-impl Eq for BuildInfo {}
+impl Eq for Build {}
+#[derive(PartialEq, Clone, Debug)]
 enum BuildChannel {
     ALPHA,
     BETA,
