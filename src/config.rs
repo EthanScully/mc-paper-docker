@@ -22,14 +22,20 @@ impl MinecraftState {
     // return new mcstate if needs update
     pub fn need_update(&mut self) -> utils::Result<Option<Self>> {
         let mut version_list = api::VersionList::get().e()?;
-        if let Some(build) = version_list.latest_stable_build().e()? {
-            let current_build = api::Build::import(self.build, api::Version::import(self.version));
-            if build > current_build {
+        if let Some(latest_build) = version_list.latest_stable_build().e()? {
+            let current_build = if self.current_build.is_some() {
+                self.current_build.take().unwrap()
+            } else {
+                api::Build::import(self.build, api::Version::import(self.version))
+            };
+            if latest_build > current_build {
                 return Ok(Some(Self {
-                    version: build.version.value,
-                    build: build.id,
-                    current_build: Some(build),
+                    version: latest_build.version.value,
+                    build: latest_build.id,
+                    current_build: Some(latest_build),
                 }));
+            } else {
+                self.current_build = Some(current_build);
             }
         };
         return Ok(None);
