@@ -92,6 +92,9 @@ pub fn mc_restart(
         _ = command.arg(arg)
     }
     let mut child = command
+        .arg("-jar")
+        .arg("mc.jar")
+        .arg("nogui")
         .stdin(process::Stdio::piped())
         .stdout(process::Stdio::inherit())
         .stderr(process::Stdio::inherit())

@@ -29,20 +29,12 @@ fn main() {
     processes::sys_update().unwrap();
     println!("Intial PaperMC API Check");
     mc_update(&mut false).unwrap();
-    let mut java_command = vec![
-        "-jar".to_string(),
-        "mc.jar".to_string(),
-        "nogui".to_string(),
-    ];
+    let mut java_command: Vec<String> = Vec::new();
     match env::var("JAVACMDADD") {
         Ok(r) => {
-            java_command.reverse();
-            let mut additions = r.split(" ").collect::<Vec<_>>();
-            additions.reverse();
-            for add in additions {
+            for add in r.split(" ") {
                 java_command.push(add.to_string());
             }
-            java_command.reverse();
         }
         _ => (),
     };
