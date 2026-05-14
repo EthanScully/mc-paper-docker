@@ -36,9 +36,13 @@ fn main() {
     ];
     match env::var("JAVACMDADD") {
         Ok(r) => {
-            for add in r.split(" ") {
+            java_command.reverse();
+            let mut additions = r.split(" ").collect::<Vec<_>>();
+            additions.reverse();
+            for add in additions {
                 java_command.push(add.to_string());
             }
+            java_command.reverse();
         }
         _ => (),
     };
