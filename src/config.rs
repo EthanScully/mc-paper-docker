@@ -45,14 +45,19 @@ impl MinecraftState {
         let data = utils::get(&url).e()?;
         Ok(data)
     }
-    pub fn get_start_flags(&self) -> utils::Result<Vec<String>> {
+    pub fn get_start_flags(&self) -> Vec<String> {
         let mut version = if let Some(build) = self.current_build.as_ref() {
             build.version.clone()
         } else {
             api::Version::import(self.version)
         };
-        version.update_flags().e()?;
-        Ok(version.flags.clone())
+        match version.update_flags().e() {
+            Ok(_) => return version.flags.clone(),
+            Err(e) => {
+                eprintln!("{:#?}", e);
+                return Vec::new();
+            }
+        };
     }
 }
 pub fn load_json(path: &Path) -> utils::Result<MinecraftState> {

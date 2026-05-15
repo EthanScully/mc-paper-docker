@@ -13,12 +13,12 @@ fn mc_update(updated: &mut bool) -> utils::Result<Vec<String>> {
     let mut mc_config = config::load_json(mc_json_path).e()?;
     let latest_version = match mc_config.need_update().e()? {
         Some(o) => o,
-        None => return Ok(mc_config.get_start_flags().e()?),
+        None => return Ok(mc_config.get_start_flags()),
     };
     let jar_download = latest_version.download().e()?;
     fs::write(mc_jar_path, jar_download).e()?;
     *updated = true;
-    let start_args = latest_version.get_start_flags().e()?;
+    let start_args = latest_version.get_start_flags();
     latest_version.write_json(mc_json_path).e()?;
     Ok(start_args)
 }
