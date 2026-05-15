@@ -98,17 +98,10 @@ impl Version {
         } else {
             0
         };
-        let flags = match Version::get_start_flags(&original) {
-            Ok(r) => r,
-            Err(e) => {
-                eprintln!("{:#?}", e);
-                Vec::new()
-            }
-        };
         Self {
             value: (index_0, index_1, index_2),
             original,
-            flags,
+            flags: Vec::new(),
             builds: None,
         }
     }
@@ -118,17 +111,10 @@ impl Version {
         } else {
             format!("{}.{}.{}", value.0, value.1, value.2)
         };
-        let flags = match Version::get_start_flags(&original) {
-            Ok(r) => r,
-            Err(e) => {
-                eprintln!("{:#?}", e);
-                Vec::new()
-            }
-        };
         Self {
             value,
             original,
-            flags,
+            flags: Vec::new(),
             builds: None,
         }
     }
@@ -136,14 +122,15 @@ impl Version {
         self.builds = Some(BuildList::get(&self).e()?);
         Ok(())
     }
-    fn get_start_flags(version_str: &str) -> utils::Result<Vec<String>> {
+    pub fn update_flags(&mut self) -> utils::Result<()> {
         let json_raw = utils::get(&format!(
             "https://fill.papermc.io/v3/projects/paper/versions/{}",
-            version_str
+            self.original
         ))
         .e()?;
         let version_info = serde_json::from_slice::<PaperVersion>(&json_raw).e()?;
-        Ok(version_info.version.java.flags.recommended)
+        self.flags = version_info.version.java.flags.recommended;
+        Ok(())
     }
 }
 impl Ord for Version {
