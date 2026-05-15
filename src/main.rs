@@ -39,7 +39,6 @@ fn main() {
         }
         _ => (),
     };
-    println!("{:#?},{:#?}", start_args, custom_args);
     println!("Starting Minecraft");
     processes::mc_restart(mc_state_mutex.clone(), &custom_args, &start_args).unwrap();
     loop {
