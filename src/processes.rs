@@ -64,10 +64,7 @@ impl Process {
         }
     }
 }
-pub fn mc_restart(
-    mc_state_mutex: Arc<RwLock<Option<Process>>>,
-    args: &Vec<String>,
-) -> utils::Result<()> {
+pub fn mc_restart(mc_state_mutex: Arc<RwLock<Option<Process>>>,args: &Vec<String>, start_args: &Vec<String>) -> utils::Result<()> {
     if let Some(mut mc_state) = (*mc_state_mutex.write().o()?).take() {
         if mc_state.child.try_wait().e()?.is_none() {
             let msg = "\n/stop\n";
@@ -89,6 +86,9 @@ pub fn mc_restart(
     }
     let mut command = process::Command::new("java");
     for arg in args {
+        _ = command.arg(arg)
+    }
+    for arg in start_args {
         _ = command.arg(arg)
     }
     let mut child = command

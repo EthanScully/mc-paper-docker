@@ -45,6 +45,13 @@ impl MinecraftState {
         let data = utils::get(&url).e()?;
         Ok(data)
     }
+    pub fn get_start_flags(&self) -> Vec<String> {
+        if let Some(build) = &self.current_build {
+            build.version.flags.clone()
+        } else {
+            api::Version::import(self.version).flags
+        }
+    }
 }
 pub fn load_json(path: &Path) -> utils::Result<MinecraftState> {
     if !path.exists() {

@@ -2,10 +2,29 @@ use std::{collections::HashMap, *};
 
 use crate::{err::ErrorCaller, utils};
 // API JSON STRUCTS //
+// verision list
 #[derive(Debug, serde::Deserialize)]
 pub struct PaperVersionList {
     versions: HashMap<String, Vec<String>>,
 }
+// specific version
+#[derive(Debug, serde::Deserialize)]
+pub struct PaperVersion {
+    version: PaperVersionVersion,
+}
+#[derive(Debug, serde::Deserialize)]
+pub struct PaperVersionVersion {
+    java: PaperVersionVersionJava,
+}
+#[derive(Debug, serde::Deserialize)]
+pub struct PaperVersionVersionJava {
+    flags: PaperVersionVersionJavaFlags,
+}
+#[derive(Debug, serde::Deserialize)]
+pub struct PaperVersionVersionJavaFlags {
+    recommended: Vec<String>,
+}
+// specific build
 #[derive(Debug, serde::Deserialize)]
 struct PaperBuild {
     id: u16,
@@ -58,6 +77,7 @@ impl VersionList {
 pub struct Version {
     pub value: (u16, u16, u16),
     original: String,
+    pub flags: Vec<String>,
     builds: Option<BuildList>,
 }
 impl Version {
@@ -78,9 +98,17 @@ impl Version {
         } else {
             0
         };
+        let flags = match Version::get_start_flags(&original) {
+            Ok(r) => r,
+            Err(e) => {
+                eprintln!("{:#?}", e);
+                Vec::new()
+            }
+        };
         Self {
             value: (index_0, index_1, index_2),
             original,
+            flags,
             builds: None,
         }
     }
@@ -90,15 +118,32 @@ impl Version {
         } else {
             format!("{}.{}.{}", value.0, value.1, value.2)
         };
+        let flags = match Version::get_start_flags(&original) {
+            Ok(r) => r,
+            Err(e) => {
+                eprintln!("{:#?}", e);
+                Vec::new()
+            }
+        };
         Self {
             value,
             original,
+            flags,
             builds: None,
         }
     }
     fn pull_builds(&mut self) -> utils::Result<()> {
         self.builds = Some(BuildList::get(&self).e()?);
         Ok(())
+    }
+    fn get_start_flags(version_str: &str) -> utils::Result<Vec<String>> {
+        let json_raw = utils::get(&format!(
+            "https://fill.papermc.io/v3/projects/paper/versions/{}",
+            version_str
+        ))
+        .e()?;
+        let version_info = serde_json::from_slice::<PaperVersion>(&json_raw).e()?;
+        Ok(version_info.version.java.flags.recommended)
     }
 }
 impl Ord for Version {
@@ -130,6 +175,7 @@ impl Clone for Version {
         Self {
             value: self.value.clone(),
             original: self.original.clone(),
+            flags: self.flags.clone(),
             builds: None,
         }
     }
