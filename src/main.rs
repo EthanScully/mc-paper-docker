@@ -1,11 +1,12 @@
 mod api;
 mod config;
-mod err;
 mod processes;
 mod utils;
 
-use crate::err::ErrorCaller;
-use std::{path::Path, *};
+use {
+    err::ReturnCaller,
+    std::{path::Path, *},
+};
 
 fn mc_update(updated: &mut bool) -> utils::Result<Vec<String>> {
     let mc_json_path = Path::new("mc-config.json");

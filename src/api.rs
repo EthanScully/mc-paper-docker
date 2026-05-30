@@ -1,6 +1,8 @@
-use std::{collections::HashMap, *};
-
-use crate::{err::ErrorCaller, utils};
+use {
+    crate::utils,
+    err::ReturnCaller,
+    std::{collections::HashMap, *},
+};
 // API JSON STRUCTS //
 // verision list
 #[derive(Debug, serde::Deserialize)]

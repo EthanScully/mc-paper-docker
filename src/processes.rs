@@ -1,11 +1,11 @@
-use crate::{
-    err::{self, Caller, ErrorCaller},
-    utils,
-};
-use std::{
-    io::{BufRead, Read, Write},
-    sync::{Arc, RwLock},
-    *,
+use {
+    crate::utils,
+    err::{Caller, ReturnCaller},
+    std::{
+        io::{BufRead, Read, Write},
+        sync::{Arc, RwLock},
+        *,
+    },
 };
 pub fn sys_update() -> utils::Result<()> {
     run_simple_command("apt", &["update"]).e()?;
@@ -22,8 +22,8 @@ fn run_simple_command(arg0: &str, args: &[&str]) -> utils::Result<()> {
         .stdout(process::Stdio::piped())
         .spawn()
         .e()?;
-    let mut stdout = child.stdout.take().o()?;
-    let mut stderr = child.stderr.take().o()?;
+    let mut stdout = child.stdout.take().s()?;
+    let mut stderr = child.stderr.take().s()?;
     let stdout_handle = thread::spawn(move || -> Result<String, String> {
         let mut out = String::new();
         match stdout.read_to_string(&mut out).e() {
@@ -40,8 +40,8 @@ fn run_simple_command(arg0: &str, args: &[&str]) -> utils::Result<()> {
         };
         Ok(out)
     });
-    let stdout = stdout_handle.join().o()??;
-    let stderr = stderr_handle.join().o()??;
+    let stdout = stdout_handle.join().s()??;
+    let stderr = stderr_handle.join().s()??;
     if let Some(exit_status) = child.try_wait().e()? {
         if !exit_status.success() {
             return Err(err::new(format!("{}{}", stdout.trim(), stderr.trim())))?;
@@ -64,8 +64,12 @@ impl Process {
         }
     }
 }
-pub fn mc_restart(mc_state_mutex: Arc<RwLock<Option<Process>>>,args: &Vec<String>, start_args: &Vec<String>) -> utils::Result<()> {
-    if let Some(mut mc_state) = (*mc_state_mutex.write().o()?).take() {
+pub fn mc_restart(
+    mc_state_mutex: Arc<RwLock<Option<Process>>>,
+    args: &Vec<String>,
+    start_args: &Vec<String>,
+) -> utils::Result<()> {
+    if let Some(mut mc_state) = (*mc_state_mutex.write().s()?).take() {
         if mc_state.child.try_wait().e()?.is_none() {
             let msg = "\n/stop\n";
             mc_state.stdin.write_all(msg.as_bytes()).e()?;
@@ -100,12 +104,12 @@ pub fn mc_restart(mc_state_mutex: Arc<RwLock<Option<Process>>>,args: &Vec<String
         .stderr(process::Stdio::inherit())
         .spawn()
         .e()?;
-    let child_stdin = child.stdin.take().o()?;
+    let child_stdin = child.stdin.take().s()?;
     let state = Process {
         child,
         stdin: child_stdin,
     };
-    *mc_state_mutex.write().o()? = Some(state);
+    *mc_state_mutex.write().s()? = Some(state);
     Ok(())
 }
 

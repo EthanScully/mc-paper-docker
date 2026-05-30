@@ -1,10 +1,8 @@
-use crate::{
-    api,
-    err::{Caller, ErrorCaller},
-    utils,
+use {
+    crate::{api, utils},
+    err::{Caller, ReturnCaller},
+    std::{path::Path, *},
 };
-
-use std::{path::Path, *};
 
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
 pub struct MinecraftState {
@@ -41,7 +39,7 @@ impl MinecraftState {
         return Ok(None);
     }
     pub fn download(&self) -> utils::Result<Vec<u8>> {
-        let url = self.current_build.as_ref().o()?.url.clone();
+        let url = self.current_build.as_ref().s()?.url.clone();
         let data = utils::get(&url).e()?;
         Ok(data)
     }

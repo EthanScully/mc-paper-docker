@@ -1,8 +1,8 @@
-use crate::{
-    err::{self, ErrorCaller},
-    utils,
+use {
+    crate::utils,
+    err::ReturnCaller,
+    std::{str::FromStr, *},
 };
-use std::{str::FromStr, *};
 
 pub type Result<T> = result::Result<T, Box<dyn error::Error>>;
 
